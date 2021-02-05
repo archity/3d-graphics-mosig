@@ -10,6 +10,9 @@ import OpenGL.GL as GL              # standard Python OpenGL wrapper
 import glfw                         # lean window system wrapper for OpenGL
 import numpy as np                  # all matrix manipulations & OpenGL args
 
+from transform import translate, rotate, scale, vec
+from transform import perspective
+import math
 
 # ------------ low level OpenGL object wrappers ----------------------------
 class Shader:
@@ -91,6 +94,12 @@ class SimpleTriangle:
         GL.glUseProgram(self.shader.glid)
         my_color_location = GL.glGetUniformLocation(self.shader.glid, 'color')
         GL.glUniform3fv(my_color_location, 1, (0.6, 0.6, 0.9))
+
+        matrix_location = GL.glGetUniformLocation(self.shader.glid, 'matrix')
+        
+        translate_mat = translate(math.cos(glfw.get_time()))
+        rotate_mat = rotate(vec(0, 1, 0), 45 * glfw.get_time()*360/120)
+        GL.glUniformMatrix4fv(matrix_location, 1, True,  rotate_mat)
 
         # draw triangle as GL_TRIANGLE vertex array, draw array call
         GL.glBindVertexArray(self.glid)
