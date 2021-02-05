@@ -14,6 +14,8 @@ from transform import translate, rotate, scale, vec
 from transform import perspective
 import math
 
+from transform import Trackball, identity
+
 # ------------ low level OpenGL object wrappers ----------------------------
 class Shader:
     """ Helper class to create and automatically destroy shader program """
@@ -96,10 +98,15 @@ class SimpleTriangle:
         GL.glUniform3fv(my_color_location, 1, (0.6, 0.6, 0.9))
 
         matrix_location = GL.glGetUniformLocation(self.shader.glid, 'matrix')
-        
         translate_mat = translate(math.cos(glfw.get_time()))
         rotate_mat = rotate(vec(0, 1, 0), 45 * glfw.get_time()*360/120)
         GL.glUniformMatrix4fv(matrix_location, 1, True,  rotate_mat)
+
+        # Pass the projection and view matrices
+        proj = GL.glGetUniformLocation(self.shader.glid, 'projection_matrix')
+        GL.glUniformMatrix4fv(proj, 1, True,  projection)
+        vie = GL.glGetUniformLocation(self.shader.glid, 'view_matrix')
+        GL.glUniformMatrix4fv(vie, 1, True,  view)
 
         # draw triangle as GL_TRIANGLE vertex array, draw array call
         GL.glBindVertexArray(self.glid)
@@ -110,12 +117,35 @@ class SimpleTriangle:
         GL.glDeleteVertexArrays(1, [self.glid])
         GL.glDeleteBuffers(1, self.buffers)
 
+class GLFWTrackball(Trackball):
+    """ Use in Viewer for interactive viewpoint control """
+
+    def __init__(self, win):
+        """ Init needs a GLFW window handler 'win' to register callbacks """
+        super().__init__()
+        self.mouse = (0, 0)
+        glfw.set_cursor_pos_callback(win, self.on_mouse_move)
+        glfw.set_scroll_callback(win, self.on_scroll)
+
+    def on_mouse_move(self, win, xpos, ypos):
+        """ Rotate on left-click & drag, pan on right-click & drag """
+        old = self.mouse
+        self.mouse = (xpos, glfw.get_window_size(win)[1] - ypos)
+        if glfw.get_mouse_button(win, glfw.MOUSE_BUTTON_LEFT):
+            self.drag(old, self.mouse, glfw.get_window_size(win))
+        if glfw.get_mouse_button(win, glfw.MOUSE_BUTTON_RIGHT):
+            self.pan(old, self.mouse)
+
+    def on_scroll(self, win, _deltax, deltay):
+        """ Scroll controls the camera distance to trackball center """
+        self.zoom(deltay, glfw.get_window_size(win)[1])
+
 
 # ------------  Viewer class & window management ------------------------------
 class Viewer:
     """ GLFW viewer window, with classic initialization & graphics loop """
 
-    def __init__(self, width=640, height=480):
+    def __init__(self, width=1280, height=720):
 
         # version hints: create GL window with >= OpenGL 3.3 and core profile
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
@@ -124,6 +154,9 @@ class Viewer:
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
         glfw.window_hint(glfw.RESIZABLE, False)
         self.win = glfw.create_window(width, height, 'Viewer', None, None)
+
+        # Trackball related
+        self.trackball = GLFWTrackball(self.win)
 
         # make win's OpenGL context current; no OpenGL calls can happen before
         glfw.make_context_current(self.win)
@@ -147,10 +180,14 @@ class Viewer:
         while not glfw.window_should_close(self.win):
             # clear draw buffer
             GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+            
+            # Trackball related
+            winsize = glfw.get_window_size(self.win)
+            view = self.trackball.view_matrix()
+            projection = self.trackball.projection_matrix(winsize)
 
-            # draw our scene objects
             for drawable in self.drawables:
-                drawable.draw(None, None, None)
+                drawable.draw(projection, view, identity())
 
             # flush render commands, and swap draw buffers
             glfw.swap_buffers(self.win)
@@ -158,6 +195,7 @@ class Viewer:
             # Poll for and process events
             glfw.poll_events()
 
+            
     def add(self, *drawables):
         """ add objects to draw in this window """
         self.drawables.extend(drawables)
