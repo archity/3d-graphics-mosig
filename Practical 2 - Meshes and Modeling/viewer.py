@@ -12,6 +12,7 @@ import numpy as np                  # all matrix manipulations & OpenGL args
 import sys                          # for sys.exit
 
 from itertools import cycle         # cyclic iterator to easily toggle polygon rendering modes
+import assimpcy
 
 # ------------ low level OpenGL object wrappers ----------------------------
 class Shader:
@@ -110,25 +111,24 @@ class Pyramid:
         self.shader = shader
     
         # Interpolated colourful rendering
-        # position = np.array(((-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0)), 'f')
-        # color = np.array(((1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 0, 0)), 'f')
-        # self.index = np.array((4,1,2, 4,2,3, 4,3,0, 4,0,1, 1,3,2, 1,0,3 ), np.uint32)
+        position = np.array(((-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0)), 'f')
+        color = np.array(((1, 1, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 0, 0)), 'f')
+        self.index = np.array((4,1,2, 4,2,3, 4,3,0, 4,0,1, 1,3,2, 1,0,3 ), np.uint32)
 
         # Flat colours rendering
-        position = np.array(((-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0),
-        (-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0),
-        (-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0),
-        (0, 1, 0), (-.5, 0, .5), (.5, 0, -.5)), 'f')
+        # position = np.array(((-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0),
+        # (-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0),
+        # (-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0),
+        # (0, 1, 0), (-.5, 0, .5), (.5, 0, -.5)), 'f')
 
-        color = np.array(((0, 0, 1), (1, 0, 0), (1, 0, 0), (0, 1, 0), (1, 0, 0),
-        (0, 1, 1), (0, 1, 1), (0, 1, 0), (0, 0, 1), (0, 1, 0),
-        (1, 1, 0), (1, 1, 0), (1, 1, 0), (1, 1, 0), (0, 0, 1),
-        (0, 1, 1), (1, 1, 0), (1, 1, 0)), 'f')
+        # color = np.array(((0, 0, 1), (1, 0, 0), (1, 0, 0), (0, 1, 0), (1, 0, 0),
+        # (0, 1, 1), (0, 1, 1), (0, 1, 0), (0, 0, 1), (0, 1, 0),
+        # (1, 1, 0), (1, 1, 0), (1, 1, 0), (1, 1, 0), (0, 0, 1),
+        # (0, 1, 1), (1, 1, 0), (1, 1, 0)), 'f')
 
-        self.index = np.array((4,1,2, 9,7,3, 14,8,0, 15,5,6, 11,13,12, 16,10,17), np.uint32)
+        # self.index = np.array((4,1,2, 9,7,3, 14,8,0, 15,5,6, 11,13,12, 16,10,17), np.uint32)
 
         self.array = VertexArray([position, color], self.index)
-
         
 
     def draw(self, projection, view, model):
@@ -141,6 +141,8 @@ class Pyramid:
         GL.glUniformMatrix4fv(loc, 1, True, projection)
 
         self.array.execute(GL.GL_TRIANGLES)
+
+        # Mesh.draw(self=self, projection=projection, view=view, model=model)
 
     def __del__(self):
         GL.glDeleteVertexArrays(1, [self.glid])
@@ -155,12 +157,21 @@ class Mesh:
         Most mesh classes can then derive from this base implementation """
     def __init__(self, shader, attributes, index=None):
         self.shader = shader
-        # TODO pass on these buffers to a VertexArray Object
+        # pass on these buffers to a VertexArray Object
+        self.array = VertexArray(attributes, index)
 
     def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
         GL.glUseProgram(self.shader.glid)
-        # TODO: instantiate uniform matrices that are need in all drawables
-        # TODO: draw th Mesh by executing the VertexArray
+        
+        # instantiate uniform matrices that are need in all drawables
+        loc = GL.glGetUniformLocation(self.shader.glid, 'view')
+        GL.glUniformMatrix4fv(loc, 1, True, view)
+
+        loc = GL.glGetUniformLocation(self.shader.glid, 'projection')
+        GL.glUniformMatrix4fv(loc, 1, True, projection)
+
+        # draw the Mesh by executing the VertexArray
+        self.array.execute(primitive=primitives)
 
 
 # ------------  Viewer class & window management ------------------------------
@@ -169,14 +180,14 @@ from transform import Trackball
 class Viewer:
     """ GLFW viewer window, with classic initialization & graphics loop """
 
-    def __init__(self, width=1280, height=720):
+    def __init__(self, width=640, height=480):
 
         # version hints: create GL window with >= OpenGL 3.3 and core profile
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
         glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
         glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, GL.GL_TRUE)
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
-        glfw.window_hint(glfw.RESIZABLE, False)
+        glfw.window_hint(glfw.RESIZABLE, True)
         self.win = glfw.create_window(width, height, 'Viewer', None, None)
 
         # make win's OpenGL context current; no OpenGL calls can happen before
@@ -188,6 +199,7 @@ class Viewer:
 
         # register event handlers
         glfw.set_key_callback(self.win, self.on_key)
+        glfw.set_window_size_callback(self.win, self.on_size)
         glfw.set_cursor_pos_callback(self.win, self.on_mouse_move)
         glfw.set_scroll_callback(self.win, self.on_scroll)
 
@@ -259,18 +271,47 @@ class Viewer:
         """ Scroll controls the camera distance to trackball center """
         self.trackball.zoom(deltay, glfw.get_window_size(win)[1])
 
+    def on_size(self, win, width, height):
+        """ window size update => update viewport to new framebuffer size """
+        GL.glViewport(0, 0, *glfw.get_framebuffer_size(win))
+
+
+# -------------- 3D resource loader -----------------------------------------
+def load(file, shader):
+    """ load resources from file using assimp, return list of Mesh """
+    try:
+        pp = assimpcy.aiPostProcessSteps
+        flags = pp.aiProcess_Triangulate | pp.aiProcess_GenSmoothNormals
+        scene = assimpcy.aiImportFile(file, flags)
+    except assimpcy.all.AssimpError as exception:
+        print('ERROR loading', file + ': ', exception.args[0].decode())
+        return []
+
+    meshes = [Mesh(shader, [m.mVertices, m.mNormals], m.mFaces)
+              for m in scene.mMeshes]
+    size = sum((mesh.mNumFaces for mesh in scene.mMeshes))
+    print('Loaded %s\t(%d meshes, %d faces)' % (file, len(meshes), size))
+    return meshes
 
 # -------------- main program and scene setup --------------------------------
 def main():
     """ create window, add shaders & scene objects, then run rendering loop """
     viewer = Viewer()
+    
     color_shader = Shader("color.vert", "color.frag")
 
+    suzanne_meshes = load(file="./suzanne.obj", shader=color_shader)
+    
+    # Load the suzanne object file and add it to viewer
+    for mesh in suzanne_meshes:
+        viewer.add(mesh)
+
     # place instances of our basic objects
-    viewer.add(Pyramid(color_shader))
+    # viewer.add(Pyramid(color_shader))
 
     # start rendering loop
     viewer.run()
+
 
 
 if __name__ == '__main__':
