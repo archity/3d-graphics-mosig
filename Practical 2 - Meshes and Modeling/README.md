@@ -15,6 +15,8 @@ The class `VertexArray` automatically takes care of sending the data to the GPU 
 </p>
 
 The numbering of the vertices can be arbitrary but then must remain consistent with the mapping. For the above numbering, we made the `position`, `color` and `index` arrays as follows:
+
+### Interpolated Colour Rendering
 ```py
 # Interpolated colourful rendering
 position = np.array(((-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0)), 'f')
@@ -61,4 +63,96 @@ The resultant would be colours having their origin at vertices, and gradually in
 
 <p align="center">
 <img width="200" alt="Pyramid RGB Face" src="./img/rgb_face_pyramid.png" align=center>
+</p>
+
+### Flat Colour Rendering
+
+Flat rendering of colours is slightly more difficult. For every face of pyramid to have exactly 1 single colour, we have to make sure that all 3 vertices of that side of triangle have same colour value. But vertices in pyramid are shared. Then how do we ensure that all the 5 faces will have their own colour?
+
+For this, we made the `position`, `color` and `index` arrays as follows:
+
+```py
+# Flat colours rendering
+position = np.array(((-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0),
+(-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0),
+(-.5, 0, -.5), (-.5, 0, .5), (.5, 0, .5), (.5, 0, -.5), (0, 1, 0),
+(0, 1, 0), (-.5, 0, .5), (.5, 0, -.5)), 'f')
+
+color = np.array(((0, 0, 1), (1, 0, 0), (1, 0, 0), (0, 1, 0), (1, 0, 0),
+(0, 1, 1), (0, 1, 1), (0, 1, 0), (0, 0, 1), (0, 1, 0),
+(1, 1, 0), (1, 1, 0), (1, 1, 0), (1, 1, 0), (0, 0, 1),
+(0, 1, 1), (1, 1, 0), (1, 1, 0)), 'f')
+
+self.index = np.array((4,1,2, 9,7,3, 14,8,0, 15,5,6, 11,13,12, 16,10,17), np.uint32)
+```
+
+This slightly complicated mapping can be interpreted as follows:
+
+```py
+    Position         Array Index
+(-.5, 0, -.5)    -->     0
+(-.5, 0,  .5)    -->     1
+(.5,  0,  .5)    -->     2
+(.5,  0, -.5)    -->     3
+(0,   1,   0)    -->     4
+
+(-.5, 0, -.5)    -->     5
+(-.5, 0,  .5)    -->     6
+(.5,  0,  .5)    -->     7
+(.5,  0, -.5)    -->     8
+(0,   1,   0)    -->     9
+
+(-.5, 0, -.5)    -->     10
+(-.5, 0,  .5)    -->     11
+(.5,  0,  .5)    -->     12
+(.5,  0, -.5)    -->     13
+(0,   1,   0)    -->     14
+
+(0,   1,   0)    -->     15
+(-.5, 0,  .5)    -->     16
+(.5,  0, -.5)    -->     17
+```
+This mapping is done by wrapping around the numbering after 4, back to the starting vertex.
+Hence each vertex has 3 different indices, except 3 vertices. THat's because every vertex is being shared by 3 different sides of a pyramid. The top vertex is being shared by 4 faces, and the 2 diagonal vertices are also technically being shared by 4 faces each.
+
+<p align="center">
+<img width="300" alt="Pyramid Mapping" src="./img/pyramid_coords_extended.png" align=center>
+</p>
+
+```py
+    Colour
+(B) (0, 0, 1)    -->     0
+(R) (1, 0, 0)    -->     1
+(R) (1, 0, 0)    -->     2
+(G) (0, 1, 0)    -->     3
+(R) (1, 0, 0)    -->     4
+(C) (0, 1, 1)    -->     5
+(C) (0, 1, 1)    -->     6
+(G) (0, 1, 0)    -->     7
+(B) (0, 0, 1)    -->     8
+(G) (0, 1, 0)    -->     9
+(Y) (1, 1, 0)    -->     10
+(Y) (1, 1, 0)    -->     11
+(Y) (1, 1, 0)    -->     12
+(Y) (1, 1, 0)    -->     13
+(B) (0, 0, 1)    -->     14
+(C) (0, 1, 1)    -->     15
+(Y) (1, 1, 0)    -->     16
+(Y) (1, 1, 0)    -->     17
+```
+
+And now, we map the vertices (variable `index`) in the following manner:
+
+```py
+Pyramid Vertices        Colour Mapping
+    4,1,2           -->     R, R, R
+    9,7,3           -->     G, G, G
+    14,8,0          -->     B, B, B
+    15,5,6          -->     C, C, C
+    11,13,12        -->     Y, Y, Y
+    16,10,17        -->     Y, Y, Y
+```
+
+<p align="center">
+<img width="200" alt="Pyramid Flat" src="./img/flat_pyramid.png" align=center>
 </p>
