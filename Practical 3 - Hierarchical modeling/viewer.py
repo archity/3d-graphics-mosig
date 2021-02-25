@@ -71,36 +71,46 @@ def main():
     # default color shader
     shader = Shader("color.vert", "color.frag")
 
+    axis = Axis(shader)
+
     # construct our robot arm hierarchy for drawing in viewer
     cylinder = Cylinder(shader)
     
+    # ---- let's make our shapes ---------------------------------------
+    base_shape = Node(transform=scale(x=0.5, y=0.1, z=0.5))
+    base_shape.add(cylinder)
+
+    arm_shape = Node(transform=translate(y=0.8) @ scale(x=0.1, y=0.8, z=0.1))
+    arm_shape.add(cylinder)
+
+    forearm_shape = Node(transform=translate(y=0.5, z=0.4) @ scale(x=0.05, y=0.4, z=0.05))
+    forearm_shape.add(cylinder)
+
     # ---- construct our robot arm hierarchy ---------------------------
     theta = 45.0        # base horizontal rotation angle
-    phi1 = 45.0         # arm angle
-    phi2 = 20.0         # forearm angle
-
-    # Base
-    base_shape = Node(transform=scale(x=0.5, y=0.1, z=0.5))
-    base_shape.add(cylinder)                    # shape of robot base
-
-    # Arm
-    arm_shape = Node(transform=translate(y=0.8) @ scale(x=0.1, y=0.8, z=0.1))
-    arm_shape.add(cylinder)                     # shape of arm
+    phi1 = 25.0         # arm angle
+    phi2 = 120.0        # forearm angle
 
     # Forearm
-    forearm_shape = Node(transform=translate(y=2) @ scale(x=0.05, y=0.4, z=0.05))
-    forearm_shape.add(cylinder)                 # shape of forearm
+    transform_forearm = Node(transform = translate(y=2, z=0.15) @ rotate((1, 0, 0), phi2))
+    transform_forearm.add(forearm_shape)
 
-    viewer.add(base_shape)
-    viewer.add(arm_shape)
-    viewer.add(forearm_shape)
+    # Arm
+    transform_arm = Node(transform = rotate((1, 0, 0), phi1))
+    transform_arm.add(arm_shape, transform_forearm)
 
+    # Base
+    transform_base = Node(transform = rotate((0, 1, 0), theta))
+    transform_base.add(base_shape, transform_arm)
 
-    # place instances of our basic objects
-    # viewer.add(*[mesh for file in sys.argv[1:] for mesh in load(file, shader)])
-    # if len(sys.argv) < 2:
-    #     print('Usage:\n\t%s [3dfile]*\n\n3dfile\t\t the filename of a model in'
-    #           ' format supported by assimp.' % (sys.argv[0],))
+    # transform_arm.add(axis)
+    # transform_forearm.add(axis)
+    # transform_base.add(axis)
+
+    # viewer.add(transform_forearm)
+    # viewer.add(transform_arm)
+    viewer.add(transform_base)
+
 
     # start rendering loop
     viewer.run()
