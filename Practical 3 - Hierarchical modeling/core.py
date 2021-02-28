@@ -9,7 +9,7 @@ import glfw                         # lean window system wrapper for OpenGL
 import numpy as np                  # all matrix manipulations & OpenGL args
 
 # our transform functions
-from transform import Trackball, identity
+from transform import Trackball, identity, rotate
 
 
 # ------------ low level OpenGL object wrappers ----------------------------
@@ -142,6 +142,17 @@ class Node:
             if hasattr(child, 'key_handler'):
                 child.key_handler(key)
 
+class RotationControlNode(Node):
+    def __init__(self, key_up, key_down, axis, angle=0):
+        super().__init__(transform=rotate(axis, angle))
+        self.angle, self.axis = angle, axis
+        self.key_up, self.key_down = key_up, key_down
+
+    def key_handler(self, key):
+        self.angle += 5 * int(key == self.key_up)
+        self.angle -= 5 * int(key == self.key_down)
+        self.transform = rotate(self.axis, self.angle)
+        super().key_handler(key)
 
 # ------------  Viewer class & window management ------------------------------
 class Viewer(Node):

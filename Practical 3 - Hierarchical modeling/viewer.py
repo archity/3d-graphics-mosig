@@ -11,7 +11,7 @@ import glfw                         # lean window system wrapper for OpenGL
 import numpy as np                  # all matrix manipulations & OpenGL args
 import assimpcy                     # 3D resource loader
 
-from core import Shader, Mesh, Node, Viewer
+from core import Shader, Mesh, Node, Viewer, RotationControlNode
 from transform import translate, rotate, scale
 
 
@@ -63,6 +63,7 @@ def load(file, shader):
     return meshes
 
 
+
 # -------------- main program and scene setup --------------------------------
 def main():
     """ create a window, add scene objects, then run rendering loop """
@@ -95,20 +96,28 @@ def main():
     transform_forearm = Node(transform = translate(y=2, z=0.15) @ rotate((1, 0, 0), phi2))
     transform_forearm.add(forearm_shape)
 
+
     # Arm
-    transform_arm = Node(transform = rotate((1, 0, 0), phi1))
+    transform_arm = RotationControlNode(glfw.KEY_LEFT, glfw.KEY_RIGHT, (1, 0, 0), angle=phi1)
+    # transform_arm = Node(transform = rotate((1, 0, 0), phi1))
     transform_arm.add(arm_shape, transform_forearm)
 
+
     # Base
-    transform_base = Node(transform = rotate((0, 1, 0), theta))
+    transform_base = RotationControlNode(glfw.KEY_UP, glfw.KEY_DOWN, (0, 1, 0), angle=theta)
+    # transform_base = Node(transform = rotate((0, 1, 0), theta))
     transform_base.add(base_shape, transform_arm)
 
-    # transform_arm.add(axis)
+
+    
+    # Display axis
+    transform_arm.add(axis)
     # transform_forearm.add(axis)
     # transform_base.add(axis)
 
-    # viewer.add(transform_forearm)
-    # viewer.add(transform_arm)
+    
+    # Add the base transform to viewer. Arm and forarm would be
+    # automnatically added by virtue of hierarchy.
     viewer.add(transform_base)
 
 
