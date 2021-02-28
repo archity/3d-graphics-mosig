@@ -84,7 +84,7 @@ def main():
     arm_shape = Node(transform=translate(y=0.8) @ scale(x=0.1, y=0.8, z=0.1))
     arm_shape.add(cylinder)
 
-    forearm_shape = Node(transform=translate(y=0.5, z=0.4) @ scale(x=0.05, y=0.4, z=0.05))
+    forearm_shape = Node(transform=translate(y=0.5, z=0) @ scale(x=0.05, y=0.4, z=0.05))
     forearm_shape.add(cylinder)
 
     # ---- construct our robot arm hierarchy ---------------------------
@@ -93,8 +93,10 @@ def main():
     phi2 = 120.0        # forearm angle
 
     # Forearm
-    transform_forearm = Node(transform = translate(y=2, z=0.15) @ rotate((1, 0, 0), phi2))
-    transform_forearm.add(forearm_shape)
+    transform_forearm_rot = RotationControlNode(glfw.KEY_PAGE_UP, glfw.KEY_PAGE_DOWN, (0, 0, 1), angle=phi2)
+    transform_forearm_rot.add(forearm_shape)
+    transform_forearm = Node(transform = translate(y=1.6, z=0))
+    transform_forearm.add(transform_forearm_rot)
 
 
     # Arm
@@ -112,10 +114,11 @@ def main():
     
     # Display axis
     transform_arm.add(axis)
-    # transform_forearm.add(axis)
-    # transform_base.add(axis)
-
+    transform_forearm.add(axis)
+    # transform_forearm_rot.add(axis)
+    transform_base.add(axis)
     
+
     # Add the base transform to viewer. Arm and forarm would be
     # automnatically added by virtue of hierarchy.
     viewer.add(transform_base)
