@@ -22,9 +22,11 @@ class PhongMesh(Mesh):
     """ Mesh with Phong illumination """
 
     def __init__(self, shader, attributes, index=None,
-                 light_dir=(0, -1, 0),   # directional light (in world coords)
+                 light_dir=(1, -1, 1),   # directional light (in world coords)
                  k_a=(0, 0, 0), k_d=(1, 1, 0), k_s=(1, 1, 1), s=16.):
         super().__init__(shader, attributes, index)
+        
+        print(light_dir)
         self.light_dir = light_dir
         self.k_a, self.k_d, self.k_s, self.s = k_a, k_d, k_s, s
 
@@ -33,10 +35,17 @@ class PhongMesh(Mesh):
 
         loc = {n: GL.glGetUniformLocation(shader.glid, n) for n in names}
         self.loc.update(loc)
+        
+        self.i = 0
+        self.x_vals = np.linspace(-10, 10, num=500)
 
     def draw(self, projection, view, model, primitives=GL.GL_TRIANGLES):
         GL.glUseProgram(self.shader.glid)
 
+        # self.light_dir = [(item * glfw.get_time()) % 100 for item in self.light_dir]
+        # self.light_dir[0] = self.x_vals[self.i]
+        self.light_dir = (self.x_vals[self.i], 0, -1)
+        self.i = (self.i + 1) % 500
         # setup light parameters
         GL.glUniform3fv(self.loc['light_dir'], 1, self.light_dir)
 
@@ -90,7 +99,7 @@ def main():
     node = Node(transform=rotate((0, 0, 1), 45))
     viewer.add(node)
 
-    light_dir = (0, -1, 0)
+    light_dir = (0, 0, -10)
     node.add(*[mesh for file in sys.argv[1:]
                for mesh in load_phong_mesh(file, shader, light_dir)])
 

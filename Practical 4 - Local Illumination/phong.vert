@@ -14,4 +14,5 @@ void main() {
 
     // TODO: compute the vertex position and normal in world or view coordinates
     w_normal = (model * vec4(normal, 0)).xyz;
+    w_position =  (model * vec4(position, 1)).xyz;
 }

@@ -12,7 +12,7 @@ uniform vec3 k_d;
 uniform vec3 k_a;
 uniform vec3 k_s;
 // uniform vec3 r;
-// uniform vec3 s;
+uniform float s;
 
 // world camera position
 uniform vec3 w_camera_position;
@@ -24,8 +24,8 @@ void main() {
     vec3 n = normalize(w_normal);
     vec3 l = normalize(-light_dir);
     vec3 r = normalize(reflect(light_dir, n));
-    vec3 v = normalize(w_camera_position);
-    float s = 10;
+    vec3 v = normalize(w_camera_position - w_position);
+    // float s = 10;
 
     // The Lambertian model
     // out_color = vec4(k_d * max(0, dot(n, l)), 1);
