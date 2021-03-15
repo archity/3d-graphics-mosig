@@ -20,6 +20,9 @@ from transform import rotate,translate,scale
 from transform import lerp, vec
 from bisect import bisect_left      # search sorted keyframe lists
 
+from transform import (quaternion_slerp, quaternion_matrix, quaternion,
+                       quaternion_from_euler)
+
 # -------------- OpenGL Texture Wrapper ---------------------------------------
 class Texture:
     """ Helper class to create and automatically destroy textures """
@@ -153,6 +156,34 @@ class KeyFrames:
         return interpolated_val
 
 
+class TransformKeyFrames:
+    """ KeyFrames-like object dedicated to 3D transforms """
+    def __init__(self, translate_keys, rotate_keys, scale_keys):
+        """ stores 3 keyframe sets for translation, rotation, scale """
+        self.translate_keys = KeyFrames(translate_keys)
+        self.rotate_keys = KeyFrames(rotate_keys, interpolation_function=quaternion_slerp)
+        self.scale_keys = KeyFrames(scale_keys)
+
+    def value(self, time):
+        """ Compute each component's interpolation and compose TRS matrix """
+        T = translate(self.translate_keys.value(time=time))
+        R = quaternion_matrix(self.rotate_keys.value(time=time))
+        S = scale(self.scale_keys.value(time=time))
+        return T @ R @ S
+
+
+class KeyFrameControlNode(Node):
+    """ Place node with transform keys above a controlled subtree """
+    def __init__(self, translate_keys, rotate_keys, scale_keys):
+        super().__init__()
+        self.keyframes = TransformKeyFrames(translate_keys, rotate_keys, scale_keys)
+
+    def draw(self, projection, view, model):
+        """ When redraw requested, interpolate our node transform from keys """
+        self.transform = self.keyframes.value(glfw.get_time())
+        super().draw(projection, view, model)
+
+
 
 # -------------- main program and scene setup --------------------------------
 def main():
@@ -160,15 +191,40 @@ def main():
     viewer = Viewer()
     shader = Shader("texture.vert", "texture.frag")
 
-    viewer.add(*[mesh for file in sys.argv[1:]
-               for mesh in load_textured(file, shader)])
+    # viewer.add(*[mesh for file in sys.argv[1:]
+    #            for mesh in load_textured(file, shader)])
 
-    if len(sys.argv) != 2:
-        print('Usage:\n\t%s [3dfile]*\n\n3dfile\t\t the filename of a model in'
-              ' format supported by assimp.' % (sys.argv[0],))
+    # if len(sys.argv) != 2:
+    #     print('Usage:\n\t%s [3dfile]*\n\n3dfile\t\t the filename of a model in'
+    #           ' format supported by assimp.' % (sys.argv[0],))
 
-    vector_keyframes = KeyFrames({0: vec(1, 0, 0), 3: vec(0, 1, 0), 6: vec(0, 0, 1)})
-    print(vector_keyframes.value(1.5))   # should display numpy vector (0.5, 0.5, 0)
+    #------------------------------------------------
+    # Exercise 1
+
+    # Single-value based example
+    # my_keyframes = KeyFrames({0: 1, 3: 7, 6: 20})
+    # print(my_keyframes.value(1.5))
+
+    # Vector-based based example
+    # vector_keyframes = KeyFrames({0: vec(1, 0, 0), 3: vec(0, 1, 0), 6: vec(0, 0, 1)})
+    # print(vector_keyframes.value(1.5))   # should display numpy vector (0.5, 0.5, 0)
+    #------------------------------------------------
+
+    #------------------------------------------------
+    # Exercise 2
+    translate_keys = {0: vec(0, 0, 0), 2: vec(1, 1, 0), 4: vec(0, 0, 0)}
+    rotate_keys = {0: quaternion(), 2: quaternion_from_euler(180, 45, 90),
+                   3: quaternion_from_euler(180, 0, 180), 4: quaternion()}
+    scale_keys = {0: 1, 2: 0.5, 4: 1}
+    keynode = KeyFrameControlNode(translate_keys, rotate_keys, scale_keys)
+
+    mesh_list = load_textured("./bunny.obj", shader=shader, tex_file="./bunny.png")
+    
+    for mesh in mesh_list:
+        keynode.add(mesh)
+    
+    viewer.add(keynode)
+    #------------------------------------------------
 
     # start rendering loop
     viewer.run()
