@@ -132,8 +132,11 @@ def load_textured(file, shader, tex_file=None):
     # Note: embedded textures not supported at the moment
     path = os.path.dirname(file) if os.path.dirname(file) != '' else './'
     for mat in scene.mMaterials:
+        print("scene")
         if not tex_file and 'TEXTURE_BASE' in mat.properties:  # texture token
             name = os.path.basename(mat.properties['TEXTURE_BASE'])
+            # name = name.replace('\\', '/')
+            print(name)
             # search texture in file's whole subdir since path often screwed up
             paths = os.walk(path, followlinks=True)
             found = [os.path.join(d, f) for d, _, n in paths for f in n
@@ -142,6 +145,47 @@ def load_textured(file, shader, tex_file=None):
             tex_file = found[0]
         if tex_file:
             mat.properties['diffuse_map'] = Texture(tex_file=tex_file)
+
+    # prepare textured mesh
+    meshes = []
+    for mesh in scene.mMeshes:
+        mat = scene.mMaterials[mesh.mMaterialIndex].properties
+        assert mat['diffuse_map'], "Trying to map using a textureless material"
+        attributes = [mesh.mVertices, mesh.mTextureCoords[0]]
+        mesh = TexturedMesh(shader, mat['diffuse_map'], attributes, mesh.mFaces)
+        meshes.append(mesh)
+
+    size = sum((mesh.mNumFaces for mesh in scene.mMeshes))
+    print('Loaded %s\t(%d meshes, %d faces)' % (file, len(meshes), size))
+    return meshes
+
+
+def multi_load_textured(file, shader, tex_file=None):
+    """ load resources from file using assimp, return list of TexturedMesh """
+    try:
+        pp = assimpcy.aiPostProcessSteps
+        flags = pp.aiProcess_Triangulate | pp.aiProcess_FlipUVs
+        scene = assimpcy.aiImportFile(file, flags)
+    except assimpcy.all.AssimpError as exception:
+        print('ERROR loading', file + ': ', exception.args[0].decode())
+        return []
+
+    # Note: embedded textures not supported at the moment
+    path = os.path.dirname(file) if os.path.dirname(file) != '' else './'
+    for index, mat in enumerate(scene.mMaterials):
+        print("scene")
+        if not tex_file and 'TEXTURE_BASE' in mat.properties:  # texture token
+            name = os.path.basename(mat.properties['TEXTURE_BASE'])
+            # name = name.replace('\\', '/')
+            print(name)
+            # search texture in file's whole subdir since path often screwed up
+            paths = os.walk(path, followlinks=True)
+            found = [os.path.join(d, f) for d, _, n in paths for f in n
+                     if name.startswith(f) or f.startswith(name)]
+            assert found, 'Cannot find texture %s in %s subtree' % (name, path)
+            tex_file = found[0]
+        if tex_file:
+            mat.properties['diffuse_map'] = Texture(tex_file=tex_file[index])
 
     # prepare textured mesh
     meshes = []
@@ -207,10 +251,6 @@ def main():
     # plane = TexturedPlane("./resources/grass.png", shader)
     # viewer.add(plane)
 
-    
-    if len(sys.argv) != 2:
-        print('Usage:\n\t%s [3dfile]*\n\n3dfile\t\t the filename of a model in'
-              ' format supported by assimp.' % (sys.argv[0],))
 
     # Wall entrance
     # Get the list of meshes from the object
@@ -225,7 +265,23 @@ def main():
 
 
     # Alternate one-line command
-    viewer.add(*[mesh for file in sys.argv[1:] for mesh in load_textured(file, shader=shader)])
+    # if len(sys.argv) != 2:
+    #     print('Usage:\n\t%s [3dfile]*\n\n3dfile\t\t the filename of a model in'
+    #           ' format supported by assimp.' % (sys.argv[0],))
+    # viewer.add(*[mesh for file in sys.argv[1:] for mesh in load_textured(file, shader=shader)])
+
+
+    # Load castle's multiple textures one by one
+    multi_shader = Shader("multi_texture.vert", "multi_texture.frag")
+    text_list = ["resources/castle/Texture/Castle Exterior Texture.jpg",
+                "resources/castle/Texture/Towers Doors and Windows Texture.jpg",
+                "resources/castle/Texture/Ground and Fountain Texture.jpg",
+                "resources/castle/Texture/Castle Interior Texture.jpg"]
+
+    castle_mesh_list = multi_load_textured(file="resources/castle/CastleFBX.fbx", shader=multi_shader, tex_file=text_list)
+    for mesh in castle_mesh_list:
+        viewer.add(mesh)
+
 
     # start rendering loop
     viewer.run()
